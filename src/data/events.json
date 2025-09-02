@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "title": "Cultural Fest",
+    "date": "2025-09-15",
+    "description": "The biggest cultural festival of the university with music, dance, and drama.",
+    "image": "https://source.unsplash.com/300x200/?festival"
+  },
+  {
+    "id": 2,
+    "title": "Tech Meetup",
+    "date": "2025-10-05",
+    "description": "A gathering for tech enthusiasts to explore latest innovations.",
+    "image": "https://source.unsplash.com/300x200/?technology"
+  },
+  {
+    "id": 3,
+    "title": "Sports Day",
+    "date": "2025-11-20",
+    "description": "Annual sports day with competitions in various games.",
+    "image": "https://source.unsplash.com/300x200/?sports"
+  }
+]
