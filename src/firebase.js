@@ -1,6 +1,5 @@
-// src/firebase.js
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, doc, runTransaction } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAwphOaBJQcqx1kpQQkpI5a14kS86B81XA",
@@ -14,9 +13,25 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-// src/utils.js
-export const generateUniqueId = () => {
-  const randomNum = Math.floor(Math.random() * 100000); // 0-99999
-  const padded = String(randomNum).padStart(5, "0"); // ensures 5 digits
-  return `HPTU${padded}`;
-};
+
+// ---- Unique sequential ID generator (atomic) ----
+export async function getNextUniqueId(prefix = "HPTU", padTo = 5) {
+  const counterRef = doc(db, "meta", "counters"); // create this doc automatically on first run
+  const nextNumber = await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(counterRef);
+    let current = 0;
+    if (!snap.exists()) {
+      // initialize if needed
+      transaction.set(counterRef, { usersNext: 1 });
+      current = 1;
+    } else {
+      const data = snap.data();
+      current = (data.usersNext ?? 1);
+      transaction.update(counterRef, { usersNext: current + 1 });
+    }
+    return current;
+  });
+
+  const padded = String(nextNumber).padStart(padTo, "0");
+  return `${prefix}${padded}`;
+}

@@ -1,64 +1,89 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { db } from "../firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import bcrypt from "bcryptjs";
 
-function Login() {
+const Login = ({ onSuccess }) => {
+  const navigate = useNavigate();
   const [uniqueId, setUniqueId] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  // sanitize function to block suspicious inputs
+  const sanitizeInput = (str) => {
+    return str.replace(/['";=<>]/g, "").trim();
+  };
+
+  const submit = async (e) => {
     e.preventDefault();
+    setErr("");
+    setLoading(true);
 
     try {
-      const q = query(
-        collection(db, "users"),
-        where("uniqueId", "==", uniqueId),
-        where("password", "==", password)
-      );
+      // sanitize and enforce uppercase ID
+      const id = sanitizeInput(uniqueId).toUpperCase();
+      if (!/^HPTU\d{5}$/.test(id)) throw new Error("Invalid ID format (use HPTU00001).");
 
-      const querySnapshot = await getDocs(q);
+      const snap = await getDoc(doc(db, "users", id));
+      if (!snap.exists()) throw new Error("ID not found.");
 
-      if (!querySnapshot.empty) {
-        setMessage("✅ Login successful!");
-      } else {
-        setMessage("❌ Invalid ID or Password.");
-      }
-    } catch (error) {
-      setMessage("❌ Error: " + error.message);
+      const user = snap.data();
+
+      // compare bcrypt hash
+      const ok = await bcrypt.compare(password, user.passwordHash);
+      if (!ok) throw new Error("Incorrect password.");
+
+      // save auth session
+      localStorage.setItem("authUser", JSON.stringify({ uniqueId: id, loggedIn: true }));
+
+      if (onSuccess) onSuccess(id);
+
+      // ✅ Redirect to home page
+      navigate("/", { replace: true });
+
+    } catch (e2) {
+      setErr(e2.message || "Login failed.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="p-6 bg-gray-900 text-white rounded-lg shadow-lg w-full max-w-md mx-auto">
-      <h2 className="text-2xl font-bold mb-4">Login</h2>
-      <form onSubmit={handleLogin} className="flex flex-col gap-4">
+    <div className="min-h-screen bg-gray-900 text-white pt-24 px-4 flex justify-center">
+      <form onSubmit={submit} className="w-full max-w-md bg-gray-800 p-6 rounded-2xl shadow-lg">
+        <h2 className="text-2xl font-bold mb-4">Log in</h2>
+        {err && <p className="mb-3 text-red-400">{err}</p>}
+
+        <label className="block mb-2 text-gray-300">Unique ID (e.g., HPTU00001)</label>
         <input
-          type="text"
-          placeholder="Unique ID"
           value={uniqueId}
           onChange={(e) => setUniqueId(e.target.value)}
-          className="p-2 rounded bg-gray-800 text-white"
+          className="w-full p-3 mb-4 rounded bg-gray-700 outline-none"
+          placeholder="HPTU00001"
           required
         />
+
+        <label className="block mb-2 text-gray-300">Password</label>
         <input
           type="password"
-          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="p-2 rounded bg-gray-800 text-white"
+          className="w-full p-3 mb-6 rounded bg-gray-700 outline-none"
+          placeholder="••••••••"
           required
         />
+
         <button
-          type="submit"
-          className="p-2 bg-green-600 rounded hover:bg-green-700 transition"
+          disabled={loading}
+          className="w-full py-3 bg-green-600 hover:bg-green-700 rounded-lg font-semibold disabled:opacity-60"
         >
-          Login
+          {loading ? "Checking..." : "Login"}
         </button>
       </form>
-      {message && <p className="mt-4">{message}</p>}
     </div>
   );
-}
+};
 
 export default Login;
